@@ -32,6 +32,11 @@
 #include <iostream>
 #include <list>
 
+// Save the map in PLY format
+#include <fstream>
+#include <iomanip>
+#include "MapPoint.h"
+
 // #include "Converter.h"
 #include "Frame.h"
 #include "FrameDrawer.h"
@@ -57,6 +62,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
     "This is free software, and you are welcome to redistribute it" << endl <<
     "under certain conditions. See LICENSE.txt." << endl << endl;
+
+    cout << endl << 
+    "### CUSTOM BUILD MARKER: 4###" << endl << endl;
+
 
     cout << "Input sensor was set to: ";
 
@@ -532,6 +541,51 @@ void System::SaveTrajectoryKITTI(const string &filename)
     f.close();
     cout << endl << "trajectory saved!" << endl;
 }
+
+// void System::SaveMapPointsPLY(const std::string &filename)
+// {
+//     std::vector<MapPoint*> vpMPs = mpMap->GetAllMapPoints();
+
+//     // Count valid points first
+//     size_t nValid = 0;
+//     for (auto* pMP : vpMPs) {
+//         if (!pMP || pMP->isBad()) continue;
+//         nValid++;
+//     }
+
+//     std::ofstream f(filename);
+//     if(!f.is_open()){
+//         std::cerr << "Cannot open " << filename << " for writing.\n";
+//         return;
+//     }
+
+//     // PLY header (ASCII)
+//     f << "ply\nformat ascii 1.0\n";
+//     f << "element vertex " << nValid << "\n";
+//     f << "property float x\nproperty float y\nproperty float z\n";
+//     // Optional: add color fields if you later compute/store them
+//     // f << "property uchar red\nproperty uchar green\nproperty uchar blue\n";
+//     f << "end_header\n";
+
+//     f << std::fixed << std::setprecision(6);
+
+//     for (auto* pMP : vpMPs)
+//     {
+//         if (!pMP || pMP->isBad()) continue;
+
+//         cv::Mat Xw = pMP->GetWorldPos();   // 3x1 CV_32F
+//         const float x = Xw.at<float>(0);
+//         const float y = Xw.at<float>(1);
+//         const float z = Xw.at<float>(2);
+
+//         f << x << " " << y << " " << z << "\n";
+//         // If you have RGB: f << x << " " << y << " " << z << " " << r << " " << g << " " << b << "\n";
+//     }
+
+//     f.close();
+//     std::cout << "Saved " << nValid << " map points to " << filename << "\n";
+// }
+
 
 int System::GetTrackingState()
 {

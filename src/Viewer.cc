@@ -62,6 +62,8 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
 
 void Viewer::Run()
 {
+    std::cout << "### Viewer::Run STARTED ###" << std::endl;
+
     mbFinished = false;
     mbStopped = false;
 

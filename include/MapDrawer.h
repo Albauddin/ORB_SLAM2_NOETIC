@@ -28,6 +28,9 @@
 
 #include<mutex>
 
+//Limiting the distance-------------------------------------------------------
+#include <unordered_set>
+
 namespace ORB_SLAM2
 {
 
@@ -57,6 +60,12 @@ private:
     cv::Mat mCameraPose;
 
     std::mutex mMutexCamera;
+
+    // -------- Distance-limited persistent MapPoints --------
+    std::unordered_set<long unsigned int> mAcceptedMPIds;
+    float mMaxDrawDistance = 0.0f;
+    bool  mUseMaxDrawDistance = false;
+    // ------------------------------------------------------
 };
 
 } //namespace ORB_SLAM

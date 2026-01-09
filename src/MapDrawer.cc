@@ -47,48 +47,179 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
     mCameraSize = fSettings["Viewer.CameraSize"];
     mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
 
+    mMaxDrawDistance = fSettings["Viewer.MaxDrawDistance"];
+    mUseMaxDrawDistance = (int)fSettings["Viewer.UseMaxDrawDistance"] != 0;
+
+
 }
+
+
+// ORIGINAL MAPDRAWER----------------------------------------------------------------------
+// void MapDrawer::DrawMapPoints()
+// {
+//     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
+//     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
+
+//     set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+
+//     if(vpMPs.empty())
+//         return;
+
+
+//     glPointSize(mPointSize);
+//     glBegin(GL_POINTS);
+//     glColor3f(1.0,0.0,0.0);//
+//     //glColor3f(0.0,0.0,0.0);
+
+//     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
+//     {
+//         if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
+//             continue;
+//         cv::Mat pos = vpMPs[i]->GetWorldPos();
+
+//         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+//     }
+//     glEnd();
+
+//     glPointSize(mPointSize);
+//     glBegin(GL_POINTS);
+//     glColor3f(0.0,1.0,1.0);  //  
+//     //glColor3f(1.0,0.0,0.0);
+
+//     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+//     {
+//         if((*sit)->isBad())
+//             continue;
+//         cv::Mat pos = (*sit)->GetWorldPos();
+//         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+
+//     }
+
+//     glEnd();
+// }
+// ------------------------------------------------------------------------------
 
 void MapDrawer::DrawMapPoints()
 {
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
-
     set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
     if(vpMPs.empty())
         return;
 
+    // ---- Compute current camera center Ow in world coordinates ----
+    cv::Mat Ow;
+    {
+        unique_lock<mutex> lock(mMutexCamera);
+        if(mCameraPose.empty())
+            return;
+
+        cv::Mat Rcw = mCameraPose.rowRange(0,3).colRange(0,3);
+        cv::Mat tcw = mCameraPose.rowRange(0,3).col(3);
+        Ow = -Rcw.t() * tcw;
+    }
+
+    // ---- FILTER SETTINGS ----
+    const float r_keep = mMaxDrawDistance;
+    const float r_keep2 = r_keep * r_keep;
+
+    // const float z_min = -2.5f;
+    // const float z_max =  2.5f;
+
+    // const float r_min = 0.5f;   // meters
+    // const float r_max = 10.0f;  // meters
+    // const float r_min2 = r_min * r_min;
+    // const float r_max2 = r_max * r_max;
+
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(1.0,0.0,0.0);//
-    //glColor3f(0.0,0.0,0.0);
+    glColor3f(1.0,0.0,0.0);
 
-    for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
+
+    // ORIGINAL CODE----------------------------------------------------------
+    // for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
+    // {
+    //     MapPoint* pMP = vpMPs[i];
+    //     if(pMP->isBad() || spRefMPs.count(pMP))
+    //         continue;
+
+    //     cv::Mat pos = pMP->GetWorldPos();
+
+    //     // Height filter (world Z)
+    //     const float z = pos.at<float>(1);
+    //     if(z < z_min || z > z_max)
+    //         continue;
+
+    //     // Distance filter (to current camera center)
+    //     // cv::Mat d = pos - Ow;
+    //     // const float dist2 = d.dot(d);
+    //     // if(dist2 < r_min2 || dist2 > r_max2)
+    //     //     continue;
+
+    //     glVertex3f(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
+    // }
+    // --------------------------------------------------------------------------
+
+    for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
     {
-        if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
-            continue;
-        cv::Mat pos = vpMPs[i]->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        MapPoint* pMP = vpMPs[i];
+        if(!pMP || pMP->isBad() || spRefMPs.count(pMP)) continue;
+
+        const auto id = pMP->mnId; // if accessible; otherwise add a getter
+        cv::Mat pos = pMP->GetWorldPos();
+
+        if(mAcceptedMPIds.find(id) == mAcceptedMPIds.end())
+        {
+            cv::Mat d = pos - Ow;
+            const float dist2 = d.dot(d);
+            if(dist2 > r_keep2) continue;
+            mAcceptedMPIds.insert(id);
+        }
+
+        glVertex3f(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
     }
     glEnd();
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0,1.0,1.0);  //  
-    //glColor3f(1.0,0.0,0.0);
+    glColor3f(0.0,1.0,1.0);
 
-    for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+    for(auto sit = spRefMPs.begin(), send = spRefMPs.end(); sit != send; ++sit)
     {
-        if((*sit)->isBad())
+        MapPoint* pMP = *sit;
+        if(!pMP || pMP->isBad())
             continue;
-        cv::Mat pos = (*sit)->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
 
+        cv::Mat pos = pMP->GetWorldPos();
+
+        const long unsigned int id = pMP->mnId;
+
+        if(mUseMaxDrawDistance && r_keep > 0.0f)
+        {
+            // Accept-once distance logic
+            if(mAcceptedMPIds.find(id) == mAcceptedMPIds.end())
+            {
+                cv::Mat d = pos - Ow;
+                const float dist2 = d.dot(d);
+
+                if(dist2 > r_keep2)
+                    continue;
+
+                mAcceptedMPIds.insert(id);
+            }
+        }
+        else
+        {
+            // distance limiting disabled: accept everything
+            mAcceptedMPIds.insert(id);
+        }
+
+        glVertex3f(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
     }
-
     glEnd();
 }
+
 
 void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
 {

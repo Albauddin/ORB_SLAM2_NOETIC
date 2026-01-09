@@ -81,6 +81,10 @@ public:
     int PredictScale(const float &currentDist, KeyFrame*pKF);
     int PredictScale(const float &currentDist, Frame* pF);
 
+    //Limiting the distance-------------------------------------------------------
+    void SetKeptByRange(bool v) { mbKeptByRange = v; }
+    bool IsKeptByRange() const { return mbKeptByRange; }
+
 public:
     long unsigned int mnId;
     static long unsigned int nNextId;
@@ -111,6 +115,12 @@ public:
 
 
     static std::mutex mGlobalMutex;
+
+
+private:
+    //Limiting the distance-------------------------------------------------------
+    bool mbKeptByRange = false;
+
 
 protected:    
 

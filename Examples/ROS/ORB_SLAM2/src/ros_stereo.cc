@@ -50,7 +50,7 @@ public:
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "RGBD");
+    ros::init(argc, argv, "Stereo");
     ros::start();
 
     if(argc != 4)
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     message_filters::Subscriber<sensor_msgs::Image> left_sub(nh, "/camera/left/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> right_sub(nh, "camera/right/image_raw", 1);
+    message_filters::Subscriber<sensor_msgs::Image> right_sub(nh, "/camera/right/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub,right_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabStereo,&igb,_1,_2));
@@ -120,10 +120,26 @@ int main(int argc, char **argv)
     // Stop all threads
     SLAM.Shutdown();
 
+    // const std::string out_dir ="/workspace/catkin_ws/Results/";
+
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory_TUM_Format.txt");
     SLAM.SaveTrajectoryTUM("FrameTrajectory_TUM_Format.txt");
     SLAM.SaveTrajectoryKITTI("FrameTrajectory_KITTI_Format.txt");
+
+    // Save trajectories
+    // SLAM.SaveKeyFrameTrajectoryTUM(out_dir + "KeyFrameTrajectory_TUM.txt");
+    // SLAM.SaveTrajectoryTUM(out_dir + "CameraTrajectory_TUM.txt");
+    // SLAM.SaveTrajectoryKITTI(out_dir + "CameraTrajectory_KITTI.txt");
+
+    // Save sparse map (PLY)
+    // std::cerr << "[ORB-SLAM2] Attempting to save PLY..." << std::endl;
+    // SLAM.SaveMapPointsPLY("ORB_SLAM2_MapPoints.ply");
+    // std::cerr << "[ORB-SLAM2] PLY save call finished." << std::endl;
+
+    // Save sparse map points (ASCII XYZ)
+    SLAM.SaveCloudMap("ORB_SLAM2_MapPoints.xyz");
+
 
     ros::shutdown();
 
